@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "src/multiple-headers-bug-backend"
+]
+resolver = "2"
