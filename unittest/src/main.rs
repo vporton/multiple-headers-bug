@@ -1,11 +1,11 @@
-use log::info;
-use candid::{Decode, Encode, Principal};
+use candid::{CandidType, Decode, Encode, Principal};
 use ic_agent::Agent;
 use reqwest::header::{HeaderMap, HeaderValue};
 use tempdir::TempDir;
 use std::{fs::File, path::{Path, PathBuf}, process::Command, str::from_utf8};
 use like_shell::{run_successful_command, temp_dir_from_template, Capture, TemporaryChild};
 use anyhow::Context;
+use serde::Deserialize;
 use serde_json::Value;
 
 struct Test {
@@ -113,10 +113,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Now using (tested to be correct) server, check IC:
     let res = dfx.agent.update(&dfx.test_canister_id, "test").with_arg(Encode!()?)
         .call_and_wait().await.context("Call to IC.")?;
-    let res = Decode!(&res, String)?;
-    let main_count = res.matches("x-my").count();
-    info!("COUNT = {main_count}");
-    assert_eq!(main_count, 2, "headers crumpled");
+    #[derive(CandidType, Deserialize)]
+    struct MyHeader {
+        name: String,
+        value: String,
+    }
+    let (returned_body, returned_headers) = Decode!(&res, String, Vec::<MyHeader>)?;
+    let main_count1 = returned_headers.into_iter().filter(|h: &MyHeader| h.name.as_str() == "x-my").count();
+    assert_eq!(main_count1, 2, "headers crumpled in (to us)");
+    let main_count2 = returned_body.matches("x-my").count();
+    assert_eq!(main_count2, 2, "headers crumpled out (from us)");
 
     Ok(())
 }

@@ -7,7 +7,7 @@ Run test as:
 ```
 docker buildx build -t test2 -f Dockerfile . && docker run test2
 ```
-and watch for error messages.
+and watch for assert messages.
 
-This test does not check whether duplicate headers are (erroneously) removed from returned
-result.
+Duplicate headers are correctly preserved in the returned result
+(as demonostrated by passed first `assert_eq`).

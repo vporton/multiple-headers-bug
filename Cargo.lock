@@ -2947,6 +2947,7 @@ dependencies = [
  "like-shell",
  "log",
  "reqwest",
+ "serde",
  "serde_json",
  "tempdir",
  "tokio",
