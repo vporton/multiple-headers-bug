@@ -16,6 +16,8 @@ async fn test_page(req: HttpRequest) -> Result<HttpResponse, Box<(dyn std::error
         .join("\n");
     Ok(HttpResponse::Ok()
         .content_type("text/plain")
+        .append_header(("x-my", "x"))
+        .append_header(("x-my", "y"))
         .body(body))
 }
 

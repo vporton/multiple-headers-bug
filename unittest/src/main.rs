@@ -1,8 +1,9 @@
 use log::info;
 use candid::{Decode, Encode, Principal};
 use ic_agent::Agent;
+use reqwest::header::{HeaderMap, HeaderValue};
 use tempdir::TempDir;
-use std::{fs::File, path::{Path, PathBuf}, process::Command};
+use std::{fs::File, path::{Path, PathBuf}, process::Command, str::from_utf8};
 use like_shell::{run_successful_command, temp_dir_from_template, Capture, TemporaryChild};
 use anyhow::Context;
 use serde_json::Value;
@@ -93,16 +94,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     run_successful_command(Command::new("dfx").arg("deploy")).context("running dfx deploy")?;
 
     // First assert that our test Web server works correctly:
-    let r = reqwest::get("https://local.vporton.name:8081").await?;
-    let count0 = r.headers().iter().filter(|(k, _v)| k.as_str() == "x-my").count();
-    assert_eq!(count0, 2, "testing Web server itself works wrong");
+    let client = reqwest::Client::new();
+    let mut headers = HeaderMap::new();
+    headers.append("x-my", HeaderValue::from_static("a"));
+    headers.append("x-my", HeaderValue::from_static("b"));
+    let r = client
+        .get("https://local.vporton.name:8081")
+        .headers(headers)
+        .send()
+        .await?;
+    let count1 = r.headers().iter().filter(|(k, _v)| k.as_str() == "x-my").count();
+    assert_eq!(count1, 2, "testing Web server itself works wrong (test 1)");
+    let b = r.bytes().await?;
+    // println!("[[{}]]", from_utf8(&b)?);
+    let count2 = from_utf8(&b)?.matches("x-my").count();
+    assert_eq!(count2, 2, "testing Web server itself works wrong (test 2)");
 
+    // Now using (tested to be correct) server, check IC:
     let res = dfx.agent.update(&dfx.test_canister_id, "test").with_arg(Encode!()?)
         .call_and_wait().await.context("Call to IC.")?;
     let res = Decode!(&res, String)?;
-    let count = res.matches("x-my").count();
-    info!("COUNT = {count}");
-    assert_eq!(count, 2, "headers crumpled");
+    let main_count = res.matches("x-my").count();
+    info!("COUNT = {main_count}");
+    assert_eq!(main_count, 2, "headers crumpled");
 
     Ok(())
 }
