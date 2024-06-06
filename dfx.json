@@ -1,9 +1,8 @@
 {
   "canisters": {
-    "multiple-headers-bug-backend": {
-      "candid": "src/multiple-headers-bug-backend/multiple-headers-bug-backend.did",
-      "package": "multiple-headers-bug-backend",
-      "type": "rust"
+    "test": {
+      "main": "motoko/test.mo",
+      "type": "motoko"
     }
   },
   "defaults": {

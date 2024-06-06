@@ -41,6 +41,7 @@ RUN cp CA.pem /usr/local/share/ca-certificates/localhost.crt
 RUN update-ca-certificates
 
 COPY test-server test-server
+COPY unittest unittest
 COPY Cargo.lock .
 COPY Cargo.toml .
 COPY dfx.json dfx.json
@@ -51,4 +52,4 @@ RUN cargo build
 RUN export PATH=$HOME/.local/share/dfx/bin:$PATH && dfx cache install
 RUN export PATH=$HOME/.local/share/dfx/bin:$PATH && mops install
 
-CMD sh -c "export PATH=$HOME/.local/share/dfx/bin:$PATH RUST_LOG=info && ./target/debug/e2e"
+CMD sh -c "export PATH=$HOME/.local/share/dfx/bin:$PATH RUST_LOG=info && ./target/debug/unittest"

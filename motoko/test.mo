@@ -1,6 +1,7 @@
 import Types "HttpTypes";
 import Text "mo:base/Text";
 import Blob "mo:base/Blob";
+import Cycles "mo:base/ExperimentalCycles";
 
 actor {
     public shared func test() : async Text {
@@ -16,6 +17,7 @@ actor {
             transform = ?{ function = transform; context = "" };
         };
 
+        Cycles.add<system>(20_000_000);
         let response : Types.HttpResponsePayload = await ic.http_request(request);
 
         switch (Text.decodeUtf8(Blob.fromArray(response.body))) {

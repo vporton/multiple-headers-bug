@@ -1,7 +1,8 @@
-use candid::{Encode, Principal};
+use log::info;
+use candid::{Decode, Encode, Principal};
 use ic_agent::Agent;
 use tempdir::TempDir;
-use std::{fs::{read_to_string, File}, path::{Path, PathBuf}, process::Command};
+use std::{fs::File, path::{Path, PathBuf}, process::Command};
 use like_shell::{run_successful_command, temp_dir_from_template, Capture, TemporaryChild};
 use anyhow::Context;
 use serde_json::Value;
@@ -15,7 +16,7 @@ struct Test {
 impl Test {
     pub async fn new(tmpl_dir: &Path) -> Result<Self, Box<dyn std::error::Error>> {
         let cargo_manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let workspace_dir = cargo_manifest_dir.join("..").join("..");
+        let workspace_dir = cargo_manifest_dir.join("..");
         let dir = temp_dir_from_template(tmpl_dir)?;
 
         let res = Self {
@@ -43,10 +44,10 @@ impl<'a> OurDFX<'a> {
         ).args([&["start", "--host", "127.0.0.1:8007", "--background"] as &[&str], additional_args].concat()).current_dir(base.dir.path()))
             .context("Starting DFX")?;
 
-        let port_str = read_to_string(
-            base.dir.path().join(".dfx").join("network").join("local").join("webserver-port"),
-        ).context("Reading port.")?;
-        let port: u16 = port_str.parse().context("Parsing port number.")?;
+        // let port_str = read_to_string(
+        //     base.dir.path().join(".dfx").join("network").join("local").join("webserver-port"),
+        // ).context("Reading port.")?;
+        let port: u16 = 8007; //port_str.parse().context("Parsing port number.")?;
 
         println!("Connecting to DFX (port {port})");
         run_successful_command(Command::new(
@@ -86,13 +87,22 @@ impl<'a> Drop for OurDFX<'a> {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let test = Test::new(&Path::new(".")).await?;
     let dfx = OurDFX::new(&test, &[]).await?;
-    run_successful_command(Command::new("dfx").arg("deploy"))?.context("running dfx deploy");
+    let _test_http = TemporaryChild::spawn(&mut Command::new(
+        dfx.base.workspace_dir.join("target").join("debug").join("test-server")
+    ), Capture { stdout: None, stderr: None }).context("Running test HTTPS server")?;
+    run_successful_command(Command::new("dfx").arg("deploy")).context("running dfx deploy")?;
+
+    // First assert that our test Web server works correctly:
+    let r = reqwest::get("https://local.vporton.name:8081").await?;
+    let count0 = r.headers().iter().filter(|(k, _v)| k.as_str() == "x-my").count();
+    assert_eq!(count0, 2, "testing Web server itself works wrong");
 
     let res = dfx.agent.update(&dfx.test_canister_id, "test").with_arg(Encode!()?)
         .call_and_wait().await.context("Call to IC.")?;
-    let res = Decode!(res, String)?;
+    let res = Decode!(&res, String)?;
     let count = res.matches("x-my").count();
-    assert_eq!(count, 2);
+    info!("COUNT = {count}");
+    assert_eq!(count, 2, "headers crumpled");
 
     Ok(())
 }
